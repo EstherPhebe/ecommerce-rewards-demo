@@ -1,0 +1,33 @@
+{
+  "ts-node": {
+    "transpileOnly": true,
+    "files": true
+  },
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "outDir": "dist",
+    "rootDir": "./",
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "declaration": false,
+    "sourceMap": true,
+    "typeRoots": ["node_modules/@types", "./types/*"],
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "types/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

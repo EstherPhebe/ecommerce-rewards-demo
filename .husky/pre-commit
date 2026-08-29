@@ -1,0 +1,24 @@
+echo "=======> Running pre-commit checks on staged files..."
+
+# Run lint-staged
+echo "=======> Running linting and formatting on staged files..."
+npx lint-staged
+
+# Check if lint-staged passed
+if [ $? -ne 0 ]; then
+    echo "###### Lint-stage failed. Fix lint errors"
+    exit 1
+fi
+
+# Run TS checks
+echo "===> Running type checks..."
+npm run type-check
+
+# Check for type errors
+if [ $? -ne 0 ]; then
+    echo "###### Type checks failed. Fix errors before committing"
+    exit 1
+fi
+
+# All checks passed
+echo "****** All checks passed *******"

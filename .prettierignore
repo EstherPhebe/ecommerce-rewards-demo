@@ -1,0 +1,19 @@
+# Ignore artifacts and build outputs
+build/
+dist/
+coverage/
+
+# Ignore version control system directories (Prettier ignores these by default, but explicit is clear)
+.git/
+
+
+# Ignore node_modules 
+node_modules/
+
+# Ignore specific files or file types
+*.log
+*.lock
+
+.eslintcache
+.vscode/
+prisma-types/
