@@ -1,0 +1,115 @@
+model User {
+  id        String   @id // external user / customer id
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  purchases    Purchase[]
+  achievements UserAchievement[]
+  badges       UserBadge[]
+
+  @@map("users")
+}
+
+/// Each row is a completed order
+model Purchase {
+  id        BigInt   @id @default(autoincrement())
+  orderId   String   @unique @map("order_id")
+  userId    String   @map("user_id")
+  amount    Decimal  @db.Decimal(14, 2)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("purchases")
+}
+
+model Achievement {
+  id        BigInt @id @default(autoincrement())
+  name      String @unique
+  group  String @map("group")
+  threshold Int
+
+  unlocks UserAchievement[]
+
+  @@unique([group, threshold])
+  @@index([group])
+  @@map("achievements")
+}
+
+
+model UserAchievement {
+  id                      BigInt   @id @default(autoincrement())
+  userId                  String   @map("user_id")
+  achievementId           BigInt   @map("achievement_id")
+  unlockedAt              DateTime @default(now()) @map("unlocked_at") @db.Timestamptz(6)
+
+  user       User                  @relation(fields: [userId], references: [id])
+  definition Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+  @@map("user_achievements")
+}
+
+model Badge {
+  id             BigInt  @id @default(autoincrement())
+  name           String  @unique // stable, from config
+  threshold      Int     @unique // number of achievements required
+  cashbackAmount Decimal @map("cashback_amount") @db.Decimal(14, 2)
+
+  awards UserBadge[]
+
+  @@map("badges")
+}
+
+
+model UserBadge {
+  id                BigInt   @id @default(autoincrement())
+  userId            String   @map("user_id")
+  badgeId           BigInt   @map("badge_id")
+  awardedAt         DateTime @default(now()) @map("awarded_at") @db.Timestamptz(6)
+
+  user       User            @relation(fields: [userId], references: [id])
+  definition Badge @relation(fields: [badgeId], references: [id])
+  payout     CashbackPayout?
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+/// One payout per earned badge. payoutKey stop double-pays.
+model CashbackPayout {
+  id             BigInt   @id @default(autoincrement())
+  userBadgeId    BigInt   @unique @map("user_badge_id")
+  userId         String   @map("user_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  payoutKey      String   @unique @map("payout_key")
+  status         PayoutStatus   @default(PENDING) // pending | paid | failed
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userBadge UserBadge @relation(fields: [userBadgeId], references: [id])
+
+  @@map("cashback_payouts")
+}
+
+/// Audit log of consumed events. Flushed after a retention window.
+model ProcessedEvent {
+  eventId     String   @id @map("event_id")
+  eventType   String   @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(6)
+
+  @@index([processedAt])
+  @@map("processed_events")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
