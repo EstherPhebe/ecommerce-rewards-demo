@@ -3,6 +3,11 @@ import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
 import prisma from "./prisma/client";
+import router from "./src/routers";
+import { connect, consume } from "./src/services/messageBroker";
+import { EVENTS } from "./src/consts/events";
+import { handleOrderCompleted } from "./src/consumers/orderPurchaseHandler";
+import { handleBadgeUnlocked } from "./src/consumers/badgeHandler";
 
 const app = express();
 
@@ -21,8 +26,10 @@ app.use(express.json());
 app.use(morgan(process.env.NODE_ENV !== "development" ? "combined" : "dev"));
 
 app.get("/", (_req: Request, res: Response) => {
-  res.send("Achievements & Rewards API");
+  res.status(200).json({ message: "Achievements & Rewards API" });
 });
+
+app.use("/", router);
 
 app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
   if (process.env.NODE_ENV === "development") console.log(error);
@@ -71,6 +78,24 @@ app.all("*", (_req: Request, res: Response) => {
   res.status(404).json({ error: "Route not found" });
 });
 
+async function start() {
+  await connect();
+  await consume(
+    EVENTS.ORDER_COMPLETED,
+    EVENTS.ORDER_COMPLETED,
+    handleOrderCompleted
+  );
+  await consume(
+    EVENTS.BADGE_UNLOCKED,
+    EVENTS.BADGE_UNLOCKED,
+    handleBadgeUnlocked
+  );
+}
+
+start().catch(error => {
+  console.error("fatal:", error);
+  process.exit(1);
+});
 const port = process.env.APP_PORT;
 
 const server = app.listen(port, () => {
