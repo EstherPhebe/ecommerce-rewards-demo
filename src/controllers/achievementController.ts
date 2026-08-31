@@ -17,7 +17,7 @@ export const getUserAchievements = catchAsync(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
-        achievements: {
+        achievement: {
           orderBy: { unlockedAt: "asc" },
           select: { achievement: { select: { name: true } } },
         },
@@ -35,7 +35,7 @@ export const getUserAchievements = catchAsync(
       }),
     ]);
 
-    const unlockedAchievements = user.achievements.map(a => a.achievement.name);
+    const unlockedAchievements = user.achievement.map(a => a.achievement.name);
 
     res.status(200).json({
       success: true,

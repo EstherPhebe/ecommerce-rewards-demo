@@ -3,15 +3,19 @@ import prisma from "../../prisma/client";
 import { BadgeUnlocked, EventMessage } from "../../types/event";
 import { publish } from "../services/messageBroker";
 import { EVENTS } from "../consts/events";
-import { Prisma } from "../../generated/prisma/client";
+import { PayoutRecipientType, Prisma } from "../../generated/prisma/client";
+import { createTransferRecipient } from "../services/paymentGateway";
 
-export async function handleBadgeUnlocked(event: EventMessage) {
+export async function handleAchievementUnlocked(event: EventMessage) {
   const { user } = event.payload;
   const userId = user.id;
 
+  const getUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
   const awarded = await prisma.$transaction(async tx => {
-    // Serialize per-user (same reason as purchaseRegistrar): concurrent achievement.unlocked
-    // events must each see all prior committed unlocks, or a badge tier gets missed.
+    // Serialize per-user (same reason as handleOrder
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
 
     const achievementsCount = await tx.userAchievement.count({
@@ -46,6 +50,30 @@ export async function handleBadgeUnlocked(event: EventMessage) {
     return fresh.map(b => b.name);
   });
 
+  const existingRecipient = await prisma.payoutRecipient.findUnique({
+    where: { userId },
+    select: { id: true, recipientCode: true },
+  });
+
+  if (!existingRecipient?.recipientCode) {
+    if (!getUser?.accountNumber || !getUser.bankCode) {
+      console.warn(`No bank details for ${userId}`);
+    } else {
+      const { recipientCode } = await createTransferRecipient({
+        type: PayoutRecipientType.NUBAN,
+        name: getUser.name ?? userId,
+        accountNumber: getUser.accountNumber,
+        bankCode: getUser.bankCode,
+      });
+
+      await prisma.payoutRecipient.upsert({
+        where: { userId },
+        create: { userId, recipientCode, active: true },
+        update: { recipientCode, active: true },
+      });
+    }
+  }
+
   for (const badge_name of awarded) {
     publish({
       eventId: randomUUID(),
@@ -53,6 +81,7 @@ export async function handleBadgeUnlocked(event: EventMessage) {
       occurredAt: new Date().toISOString(),
       payload: { badge_name, user } as BadgeUnlocked,
     });
+
     console.log(`${userId.toUpperCase()} earned badge ${badge_name}`);
   }
 }

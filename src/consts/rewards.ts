@@ -7,11 +7,12 @@ export const ACHIEVEMENT_CATALOG: AchievementDef[] = [
   { name: "fifth_purchase", group: "order_count", threshold: 5 },
   { name: "tenth_purchase", group: "order_count", threshold: 10 },
   { name: "fifteenth_purchase", group: "order_count", threshold: 15 },
+  { name: "twentieth_purchase", group: "order_count", threshold: 20 },
 ];
 
 export const BADGE_CATALOG: BadgeDef[] = [
   { name: "bronze", achievementThreshold: 1 },
-  { name: "silver", achievementThreshold: 5 },
-  { name: "gold", achievementThreshold: 10 },
-  { name: "diamond", achievementThreshold: 20 },
+  { name: "silver", achievementThreshold: 3 },
+  { name: "gold", achievementThreshold: 5 },
+  { name: "diamond", achievementThreshold: 7 },
 ];

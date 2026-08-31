@@ -87,7 +87,7 @@ export async function consume(
         });
       } else {
         // No more retries, move to DLQ; should have alerting for eyes on it
-        console.error(`[${queue}] max retries reached → ${deadQueue}`);
+        console.error(`[${queue}] max retries reached; ${deadQueue}`);
 
         channel.sendToQueue(deadQueue, msg.content, {
           persistent: true,

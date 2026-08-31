@@ -7,7 +7,8 @@ import router from "./src/routers";
 import { connect, consume } from "./src/services/messageBroker";
 import { EVENTS } from "./src/consts/events";
 import { handleOrderCompleted } from "./src/consumers/orderPurchaseHandler";
-import { handleBadgeUnlocked } from "./src/consumers/badgeHandler";
+import { handleAchievementUnlocked } from "./src/consumers/badgeHandler";
+import { handleBadgeUnlocked } from "./src/consumers/cashbackHandler";
 
 const app = express();
 
@@ -85,6 +86,13 @@ async function start() {
     EVENTS.ORDER_COMPLETED,
     handleOrderCompleted
   );
+
+  await consume(
+    EVENTS.ACHIEVEMENT_UNLOCKED,
+    EVENTS.ACHIEVEMENT_UNLOCKED,
+    handleAchievementUnlocked
+  );
+
   await consume(
     EVENTS.BADGE_UNLOCKED,
     EVENTS.BADGE_UNLOCKED,

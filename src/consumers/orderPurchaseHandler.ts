@@ -12,7 +12,8 @@ import { publish } from "../services/messageBroker";
 const PURCHASE_GROUP = "order_count";
 
 export async function handleOrderCompleted(event: EventMessage) {
-  const { orderId, userId, amount } = event.payload as OrderCompleted;
+  const { orderId, userId, amount, accountNumber, bankCode, name } =
+    event.payload as OrderCompleted;
 
   //check to limit
   if (amount < Number(process.env.MIN_ORDER_AMOUNT)!) {
@@ -21,7 +22,10 @@ export async function handleOrderCompleted(event: EventMessage) {
   }
 
   const newOrderCompleted = await prisma.$transaction(async tx => {
-    await tx.user.createMany({ data: [{ id: userId }], skipDuplicates: true });
+    await tx.user.createMany({
+      data: [{ id: userId, name, accountNumber, bankCode }],
+      skipDuplicates: true,
+    });
 
     // Serialize per-user processing on the user row.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;

@@ -1,14 +1,33 @@
 model User {
-  id        String   @id // external customer id
-  name      String?
-  email     String?
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id            String   @id // external customer id
+  name          String?
+  email         String?
+  accountNumber String?  @map("account_number")
+  bankCode      String?  @map("bank_code")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  purchases   Purchase[]
-  achievement UserAchievement[]
-  badges      UserBadge[]
+  purchases       Purchase[]
+  achievement     UserAchievement[]
+  badges          UserBadge[]
+  payoutRecipient PayoutRecipient?
 
   @@map("users")
+}
+
+model PayoutRecipient {
+  id            BigInt              @id @default(autoincrement())
+  userId        String              @unique @map("user_id")
+  type          PayoutRecipientType @default(NUBAN) // nuban solely for now
+  // NOT unique: Paystack dedupes recipients by account number + bank code, so two
+  // users sharing a bank account legitimately map to the same recipient_code.
+  recipientCode String?             @map("recipient_code")
+  active        Boolean             @default(true)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("payout_recipients")
 }
 
 /// Each row is a completed order
@@ -111,4 +130,9 @@ enum PayoutStatus {
   PAID
   FAILED
   CANCELLED
+}
+
+enum PayoutRecipientType {
+  NUBAN
+  AUTHORIZATION
 }
