@@ -18,9 +18,7 @@ model PayoutRecipient {
   id            BigInt              @id @default(autoincrement())
   userId        String              @unique @map("user_id")
   type          PayoutRecipientType @default(NUBAN) // nuban solely for now
-  // NOT unique: Paystack dedupes recipients by account number + bank code, so two
-  // users sharing a bank account legitimately map to the same recipient_code.
-  recipientCode String?             @map("recipient_code")
+  recipientCode String?             @map("recipient_code") //not unique, because paysatcj dedupes
   active        Boolean             @default(true)
   createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -100,14 +98,15 @@ model UserBadge {
 
 /// One payout per earned badge. payoutKey stop double-pays.
 model CashbackPayout {
-  id          BigInt       @id @default(autoincrement())
-  userBadgeId BigInt       @unique @map("user_badge_id")
-  userId      String       @map("user_id")
-  amount      Decimal      @db.Decimal(14, 2)
-  payoutKey   String       @unique @map("payout_key")
-  status      PayoutStatus @default(PENDING)
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id           BigInt       @id @default(autoincrement())
+  userBadgeId  BigInt       @unique @map("user_badge_id")
+  userId       String       @map("user_id")
+  amount       Decimal      @db.Decimal(14, 2)
+  payoutKey    String       @unique @map("payout_key")
+  transferCode String?      @map("transfer_code")
+  status       PayoutStatus @default(PENDING)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   userBadge UserBadge @relation(fields: [userBadgeId], references: [id])
 
