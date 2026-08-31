@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import {
   AchievementUnlocked,
   EventMessage,
+  EventUser,
   OrderCompleted,
 } from "../../types/event";
 import prisma from "../../prisma/client";
@@ -68,12 +69,22 @@ export async function handleOrderCompleted(event: EventMessage) {
     return fresh;
   });
 
+  if (newOrderCompleted.length === 0) return;
+
+  const record = await prisma.user.findUnique({ where: { id: userId } });
+  if (!record) return; // shouldn't happen — the user was just ensured
+  const user: EventUser = {
+    id: record.id,
+    name: record.name,
+    createdAt: record.createdAt.toISOString(),
+  };
+
   for (const { name } of newOrderCompleted) {
     publish({
       eventId: randomUUID(),
       type: EVENTS.ACHIEVEMENT_UNLOCKED,
       occurredAt: new Date().toISOString(),
-      payload: { userId, achievementName: name } as AchievementUnlocked,
+      payload: { achievement_name: name, user } as AchievementUnlocked,
     });
     console.log(`${userId.toUpperCase()} unlocked achievement ${name}`);
   }

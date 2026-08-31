@@ -7,7 +7,6 @@ import { EventMessage, OrderCompleted } from "../../types/event";
 import { publish } from "../services/messageBroker";
 
 const orderCompletedSchema = z.object({
-  email: z.email(),
   orderId: z.string().min(1),
   userId: z.string().min(1),
   amount: z.number(),

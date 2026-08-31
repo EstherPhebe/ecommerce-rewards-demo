@@ -6,7 +6,8 @@ import { EVENTS } from "../consts/events";
 import { Prisma } from "../../generated/prisma/client";
 
 export async function handleBadgeUnlocked(event: EventMessage) {
-  const { userId } = event.payload;
+  const { user } = event.payload;
+  const userId = user.id;
 
   const awarded = await prisma.$transaction(async tx => {
     // Serialize per-user (same reason as purchaseRegistrar): concurrent achievement.unlocked
@@ -40,40 +41,19 @@ export async function handleBadgeUnlocked(event: EventMessage) {
       skipDuplicates: true,
     });
 
-    // Read back ids for the badges we just inserted so downstream can key the payout.
-    const userBadges = await tx.userBadge.findMany({
-      where: { userId, badgeId: { in: fresh.map(b => b.id) } },
-      select: { id: true, badgeId: true },
-    });
-
-    const defById = new Map(
-      fresh.map(b => [
-        b.id,
-        { name: b.name, cashback: Number(b.cashbackAmount) },
-      ])
-    );
-
     await recordProcessed(tx, event);
 
-    return userBadges.map(u => {
-      const def = defById.get(u.badgeId);
-      return {
-        userBadgeId: Number(u.id),
-        userId,
-        badgeName: def?.name ?? "",
-        cashbackAmount: def?.cashback ?? 0,
-      };
-    });
+    return fresh.map(b => b.name);
   });
 
-  for (const badge of awarded) {
+  for (const badge_name of awarded) {
     publish({
       eventId: randomUUID(),
       type: EVENTS.BADGE_UNLOCKED,
       occurredAt: new Date().toISOString(),
-      payload: badge as BadgeUnlocked,
+      payload: { badge_name, user } as BadgeUnlocked,
     });
-    console.log(`${userId.toUpperCase()} earned badge ${badge.badgeName}`);
+    console.log(`${userId.toUpperCase()} earned badge ${badge_name}`);
   }
 }
 

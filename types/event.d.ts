@@ -13,14 +13,20 @@ export interface OrderCompleted {
   settled: boolean;
 }
 
-export interface AchievementUnlocked {
-  userId: string;
-  achievementName: string;
+export interface EventUser {
+  id: string;
+  name: string | null;
+  createdAt: string;
 }
 
+// Fired when a user unlocks an achievement.
+export interface AchievementUnlocked {
+  achievement_name: string;
+  user: EventUser;
+}
+
+// Fired when a user earns a new badge.
 export interface BadgeUnlocked {
-  userBadgeId: number;
-  userId: string;
-  badgeName: string;
-  cashbackAmount: number;
+  badge_name: string;
+  user: EventUser;
 }
