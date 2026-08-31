@@ -6,11 +6,9 @@ import {
 } from "../services/achievementSummary";
 import { ACHIEVEMENT_CATALOG, BADGE_CATALOG } from "../consts/rewards";
 
-// The seeded catalogue (prisma/seed.ts) is a single group of four
-// achievements at 1/5/10/15 purchases, and badges at 1/5/10/20 achievements.
 const ALL = ACHIEVEMENT_CATALOG.map(a => a.name);
 
-describe("buildSummary — seeded catalogue", () => {
+describe("buildSummary based on db seed", () => {
   it("handles a brand-new user (nothing unlocked)", () => {
     const s = buildSummary([], ACHIEVEMENT_CATALOG, BADGE_CATALOG);
 
@@ -32,7 +30,7 @@ describe("buildSummary — seeded catalogue", () => {
     expect(s.next_available_achievements).toEqual(["fifth_purchase"]);
     expect(s.current_badge).toBe("bronze");
     expect(s.next_badge).toBe("silver");
-    expect(s.remaining_to_unlock_next_badge).toBe(4);
+    expect(s.remaining_to_unlock_next_badge).toBe(2);
   });
 
   it("returns only the lowest locked achievement, not every locked one", () => {
@@ -44,7 +42,7 @@ describe("buildSummary — seeded catalogue", () => {
 
     expect(s.next_available_achievements).toEqual(["tenth_purchase"]);
     expect(s.current_badge).toBe("bronze");
-    expect(s.remaining_to_unlock_next_badge).toBe(3);
+    expect(s.remaining_to_unlock_next_badge).toBe(1);
   });
 
   it("skips already-unlocked tiers when unlocks arrive out of order", () => {
@@ -64,17 +62,14 @@ describe("buildSummary — seeded catalogue", () => {
     expect(s.next_available_achievements).toEqual([]);
   });
 
-  it("documents that silver and above are unreachable as seeded", () => {
-    // Four achievements exist, so a fully-completed user sits at 4 and silver
-    // (5) can never be earned. Failing here means the catalogue changed and
-    // the badge thresholds need revisiting.
-    expect(ALL.length).toBe(4);
+  it("documents that diamond is unreachable as seeded", () => {
+    expect(ALL.length).toBe(5);
 
     const s = buildSummary(ALL, ACHIEVEMENT_CATALOG, BADGE_CATALOG);
 
-    expect(s.current_badge).toBe("bronze");
-    expect(s.next_badge).toBe("silver");
-    expect(s.remaining_to_unlock_next_badge).toBe(1);
+    expect(s.current_badge).toBe("gold");
+    expect(s.next_badge).toBe("diamond");
+    expect(s.remaining_to_unlock_next_badge).toBe(2);
   });
 });
 
@@ -133,7 +128,7 @@ describe("buildSummary — general behaviour", () => {
     expect(s.next_available_achievements).toEqual(["fifth_purchase"]);
     // It still counts toward badge progress, since badges count rows.
     expect(s.current_badge).toBe("bronze");
-    expect(s.remaining_to_unlock_next_badge).toBe(3);
+    expect(s.remaining_to_unlock_next_badge).toBe(1);
   });
 
   it("picks the highest earned tier when the count sits between thresholds", () => {
@@ -143,7 +138,7 @@ describe("buildSummary — general behaviour", () => {
       { name: "advanced", achievementThreshold: 5 },
     ];
 
-    const s = buildSummary(ALL, ACHIEVEMENT_CATALOG, badges);
+    const s = buildSummary(ALL.slice(0, 4), ACHIEVEMENT_CATALOG, badges);
 
     expect(s.current_badge).toBe("intermediate");
     expect(s.next_badge).toBe("advanced");
