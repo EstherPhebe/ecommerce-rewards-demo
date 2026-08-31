@@ -40,6 +40,7 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
           userId,
           amount: cashbackAmount,
           payoutKey: payoutRef,
+          status: PayoutStatus.INITIATED,
         },
       ],
       skipDuplicates: true,
@@ -85,6 +86,7 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
       data: {
         status: PayoutStatus.PROCESSING,
         payoutKey: result.reference,
+        transferCode: result.transfer_code,
       },
     });
 

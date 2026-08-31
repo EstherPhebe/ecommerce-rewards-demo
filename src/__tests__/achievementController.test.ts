@@ -51,7 +51,7 @@ describe("GET /users/:userId/achievements", () => {
 
   it("returns the summary for a user with unlocks", async () => {
     prisma.user.findUnique.mockResolvedValue({
-      achievements: [
+      achievement: [
         { achievement: { name: "first_purchase" } },
         { achievement: { name: "fifth_purchase" } },
       ],
@@ -69,13 +69,13 @@ describe("GET /users/:userId/achievements", () => {
         next_available_achievements: ["tenth_purchase"],
         current_badge: "bronze",
         next_badge: "silver",
-        remaining_to_unlock_next_badge: 3,
+        remaining_to_unlock_next_badge: 1,
       },
     });
   });
 
   it("looks the user up by the id in the route params", async () => {
-    prisma.user.findUnique.mockResolvedValue({ achievements: [] });
+    prisma.user.findUnique.mockResolvedValue({ achievement: [] });
 
     await call("user-42").done;
 

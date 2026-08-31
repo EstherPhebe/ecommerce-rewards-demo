@@ -81,7 +81,6 @@ export async function createTransferRecipient(
     config
   );
 
-  console.log("######", req);
   return { recipientCode: unwrap(response).recipient_code };
 }
 
@@ -99,7 +98,7 @@ export interface finalizeTransferRequest {
 
 export interface TransferResult {
   reference: string;
-  transferCode: string; // provider's transfer code
+  transfer_code: string; // provider's transfer code
   status: "success" | "failed" | "reversed";
 }
 
@@ -110,7 +109,7 @@ export interface finalizeTransferResult {
 
 interface PaystackTransfer {
   reference: string;
-  transferCode: string;
+  transfer_code: string;
   status: TransferResult["status"];
 }
 
@@ -129,28 +128,30 @@ export async function initiateTransfer(
     config
   );
 
+  console.log("initialize", response.data);
   const transfer = unwrap(response);
-
+  console.log("#######transfer", transfer);
   console.log(
     `Initiate transfer ${req.amount} to ${req.recipientCode} (ref=${req.reference})`
   );
 
   return {
     reference: transfer.reference,
-    transferCode: transfer.transferCode,
+    transfer_code: transfer.transfer_code,
     status: transfer.status,
   };
 }
 
 // Completes a transfer
 export async function finalizeTransfer(
-  req: finalizeTransferRequest
+  otp: string,
+  transferCode: string
 ): Promise<PaystackTransfer> {
   const response = await axios.post<PaystackResponse<PaystackTransfer>>(
     `${baseUrl}/transfer/finalize_transfer`,
     {
-      transfer_code: req.transfer_code,
-      otp: req.OTP,
+      transfer_code: transferCode,
+      otp,
     },
     config
   );
@@ -159,7 +160,38 @@ export async function finalizeTransfer(
 
   return {
     reference: transfer.reference,
-    transferCode: transfer.transferCode,
+    transfer_code: transfer.transfer_code,
     status: transfer.status,
+  };
+}
+
+export interface InitializeTransactionResult {
+  reference: string;
+  access_code: string;
+  authorization_url: string;
+}
+
+export async function initializeTransaction(): Promise<InitializeTransactionResult> {
+  const response = await axios.post<
+    PaystackResponse<{
+      reference: string;
+      access_code: string;
+      authorization_url: string;
+    }>
+  >(
+    `${baseUrl}/transaction/initialize`,
+    {
+      email: "customer@email.com",
+      amount: "2000000",
+    },
+    config
+  );
+
+  const transaction = unwrap(response);
+
+  return {
+    reference: transaction.reference,
+    access_code: transaction.access_code,
+    authorization_url: transaction.authorization_url,
   };
 }
