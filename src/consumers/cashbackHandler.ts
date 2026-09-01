@@ -1,8 +1,15 @@
 import prisma from "../../prisma/client";
 import crypto from "crypto";
 import { BadgeUnlocked, EventMessage } from "../../types/event";
-import { PayoutStatus } from "../../generated/prisma/enums";
-import { initiateTransfer } from "../services/paymentGateway";
+import {
+  PayoutStatus,
+  PayoutRecipientType,
+} from "../../generated/prisma/enums";
+import { payoutStatusFor, reasonFor } from "../services/payoutStatus";
+import {
+  createTransferRecipient,
+  initiateTransfer,
+} from "../services/paymentGateway";
 
 export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
   const { badge_name, user } = event.payload as BadgeUnlocked;
@@ -40,7 +47,7 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
           userId,
           amount: cashbackAmount,
           payoutKey: payoutRef,
-          status: PayoutStatus.INITIATED,
+          status: PayoutStatus.CREATED,
         },
       ],
       skipDuplicates: true,
@@ -54,49 +61,102 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
 
   if (!payout) return; // shouldn't happen; the row was just ensured
 
-  // Already initiated, nothing to do.
   if (
-    payout.status === PayoutStatus.PENDING ||
+    payout.status === PayoutStatus.PROCESSING ||
+    payout.status === PayoutStatus.AWAITING_OTP ||
     payout.status === PayoutStatus.PAID
   ) {
     console.log(`Payout ${payout.id} already ${payout.status}`);
     return;
   }
 
-  const recipient = await prisma.payoutRecipient.findUnique({
-    where: { userId },
-    select: { id: true, recipientCode: true },
-  });
-
-  if (!recipient || recipient.recipientCode === null) {
-    //should this be called again, come back to this
-    return;
-  }
-
   try {
+    const recipientCode = await ensureRecipientCode(userId);
+
+    if (!recipientCode) {
+      await prisma.cashbackPayout.update({
+        where: { id: payout.id },
+        data: {
+          status: PayoutStatus.AWAITING_PAYOUT_METHOD,
+          statusReason: "no payout method on file",
+        },
+      });
+
+      console.warn(`No payout method on file for ${userId}`);
+      return;
+    }
+
+    // Committed BEFORE the call, and deliberately not in a transaction with it:
+    // Recovery reads INITIATED as "a transfer may exist, which it cannot infer from CREATED.
+    await prisma.cashbackPayout.update({
+      where: { id: payout.id },
+      data: { status: PayoutStatus.INITIATED, statusReason: null },
+    });
+
     const result = await initiateTransfer({
       reference: payout.payoutKey,
-      recipientCode: recipient.recipientCode,
-      amount: cashbackAmount * 1000,
+      recipientCode,
+      amount: Math.round(cashbackAmount * 100),
       reason: `badge:${badge_name}`,
     });
+
+    const status = payoutStatusFor(result.status);
 
     await prisma.cashbackPayout.update({
       where: { id: payout.id },
       data: {
-        status: PayoutStatus.PROCESSING,
+        status,
         payoutKey: result.reference,
         transferCode: result.transfer_code,
+        statusReason: reasonFor(status),
       },
     });
 
-    console.log(`Transfer initiated for ${userId}`);
+    console.log(
+      `Transfer ${result.transfer_code} for ${userId}/ (payout ${status})`
+    );
   } catch (error) {
     await prisma.cashbackPayout.update({
       where: { id: payout.id },
-      data: { status: PayoutStatus.FAILED },
+      data: {
+        status: PayoutStatus.FAILED,
+        statusReason:
+          error instanceof Error ? error.message : "unknown gateway error",
+      },
     });
     // Re-throw so the broker retries.
     throw error;
   }
+}
+
+async function ensureRecipientCode(userId: string): Promise<string | null> {
+  const existing = await prisma.payoutRecipient.findUnique({
+    where: { userId },
+    select: { recipientCode: true },
+  });
+
+  if (existing?.recipientCode) return existing.recipientCode;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, accountNumber: true, bankCode: true },
+  });
+
+  if (!user?.accountNumber || !user.bankCode) return null;
+
+  // A gateway failure here throws, and the broker retries the whole handler
+  const { recipientCode } = await createTransferRecipient({
+    type: PayoutRecipientType.NUBAN,
+    name: user.name ?? userId,
+    accountNumber: user.accountNumber,
+    bankCode: user.bankCode,
+  });
+
+  await prisma.payoutRecipient.upsert({
+    where: { userId },
+    create: { userId, recipientCode, active: true },
+    update: { recipientCode, active: true },
+  });
+
+  return recipientCode;
 }

@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import catchAsync from "../utils/catchAsync";
+import ErrorWithCode from "../utils/ErrorWithCode";
+import { payoutStatusFor, reasonFor } from "../services/payoutStatus";
 import prisma from "../../prisma/client";
 import { PayoutStatus } from "../../generated/prisma/enums";
 import {
@@ -31,6 +33,7 @@ export const handlePaystackWebhook = catchAsync(
         },
         data: {
           status: PayoutStatus.PAID,
+          statusReason: null, // a settled payout has nothing left to explain
         },
       });
 
@@ -57,15 +60,30 @@ export const finalizePayout = catchAsync(
       select: { id: true, status: true, transferCode: true, payoutKey: true },
     });
 
-    console.log(payout);
-
     if (!payout || !payout.transferCode) {
-      console.warn(`No payout for reference ${reference}`);
-      return;
+      // Previously returned without responding, leaving the request hanging.
+      throw new ErrorWithCode(
+        `No payout awaiting finalization for reference ${reference}`,
+        404
+      );
     }
 
     const result = await finalizeTransfer(otp, payout.transferCode);
-    res.status(200).json({ result });
+
+    const status = payoutStatusFor(result.status);
+
+    await prisma.cashbackPayout.update({
+      where: { id: payout.id },
+      data: {
+        status,
+        transferCode: result.transfer_code,
+        statusReason: reasonFor(status),
+      },
+    });
+
+    console.log(`Payout ${payout.id} finalized/ ${result.status} (${status})`);
+
+    res.status(200).json({ success: true, data: { status, result } });
   }
 );
 

@@ -12,8 +12,6 @@ export interface OrderCompleted {
   name: string;
   // Whether the payment is settled (order cannot be refunded).
   settled: boolean;
-  accountNumber: string;
-  bankCode: string;
 }
 
 export interface EventUser {

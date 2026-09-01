@@ -104,7 +104,8 @@ model CashbackPayout {
   amount       Decimal      @db.Decimal(14, 2)
   payoutKey    String       @unique @map("payout_key")
   transferCode String?      @map("transfer_code")
-  status       PayoutStatus @default(INITIATED)
+  status       PayoutStatus @default(CREATED)
+  statusReason String?      @map("status_reason")
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -124,8 +125,10 @@ model ProcessedEvent {
 }
 
 enum PayoutStatus {
+  CREATED
+  AWAITING_PAYOUT_METHOD
   INITIATED
-  PENDING
+  AWAITING_OTP
   PROCESSING
   PAID
   FAILED

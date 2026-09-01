@@ -3,16 +3,11 @@ import prisma from "../../prisma/client";
 import { BadgeUnlocked, EventMessage } from "../../types/event";
 import { publish } from "../services/messageBroker";
 import { EVENTS } from "../consts/events";
-import { PayoutRecipientType, Prisma } from "../../generated/prisma/client";
-import { createTransferRecipient } from "../services/paymentGateway";
+import { Prisma } from "../../generated/prisma/client";
 
 export async function handleAchievementUnlocked(event: EventMessage) {
   const { user } = event.payload;
   const userId = user.id;
-
-  const getUser = await prisma.user.findUnique({
-    where: { id: userId },
-  });
 
   const awarded = await prisma.$transaction(async tx => {
     // Serialize per-user (same reason as handleOrder
@@ -49,30 +44,6 @@ export async function handleAchievementUnlocked(event: EventMessage) {
 
     return fresh.map(b => b.name);
   });
-
-  const existingRecipient = await prisma.payoutRecipient.findUnique({
-    where: { userId },
-    select: { id: true, recipientCode: true },
-  });
-
-  if (!existingRecipient?.recipientCode) {
-    if (!getUser?.accountNumber || !getUser.bankCode) {
-      console.warn(`No bank details for ${userId}`);
-    } else {
-      const { recipientCode } = await createTransferRecipient({
-        type: PayoutRecipientType.NUBAN,
-        name: getUser.name ?? userId,
-        accountNumber: getUser.accountNumber,
-        bankCode: getUser.bankCode,
-      });
-
-      await prisma.payoutRecipient.upsert({
-        where: { userId },
-        create: { userId, recipientCode, active: true },
-        update: { recipientCode, active: true },
-      });
-    }
-  }
 
   for (const badge_name of awarded) {
     publish({

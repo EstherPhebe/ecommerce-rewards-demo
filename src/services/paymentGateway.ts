@@ -96,10 +96,19 @@ export interface finalizeTransferRequest {
   transfer_code: string;
 }
 
+export type TransferStatus =
+  | "pending"
+  | "otp"
+  | "processing"
+  | "success"
+  | "failed"
+  | "reversed"
+  | "abandoned";
+
 export interface TransferResult {
   reference: string;
-  transfer_code: string; // provider's transfer code
-  status: "success" | "failed" | "reversed";
+  transfer_code: string; // provider's transfer code, e.g. TRF_9cx2eo1myydqhr7c
+  status: TransferStatus;
 }
 
 export interface finalizeTransferResult {

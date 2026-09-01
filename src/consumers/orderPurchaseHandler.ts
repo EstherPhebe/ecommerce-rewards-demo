@@ -12,18 +12,17 @@ import { publish } from "../services/messageBroker";
 const PURCHASE_GROUP = "order_count";
 
 export async function handleOrderCompleted(event: EventMessage) {
-  const { orderId, userId, amount, accountNumber, bankCode, name } =
-    event.payload as OrderCompleted;
+  const { orderId, userId, amount, name } = event.payload as OrderCompleted;
 
   //check to limit
   if (amount < Number(process.env.MIN_ORDER_AMOUNT)!) {
-    console.log(`Order ${orderId} below floor (${amount}) — skipped`);
+    console.log(`Order ${orderId} below floor (${amount})`);
     return;
   }
 
   const newOrderCompleted = await prisma.$transaction(async tx => {
     await tx.user.createMany({
-      data: [{ id: userId, name, accountNumber, bankCode }],
+      data: [{ id: userId, name }],
       skipDuplicates: true,
     });
 
@@ -76,7 +75,8 @@ export async function handleOrderCompleted(event: EventMessage) {
   if (newOrderCompleted.length === 0) return;
 
   const record = await prisma.user.findUnique({ where: { id: userId } });
-  if (!record) return; // shouldn't happen — the user was just ensured
+  if (!record) return;
+
   const user: EventUser = {
     id: record.id,
     name: record.name,
@@ -90,6 +90,7 @@ export async function handleOrderCompleted(event: EventMessage) {
       occurredAt: new Date().toISOString(),
       payload: { achievement_name: name, user } as AchievementUnlocked,
     });
+
     console.log(`${userId.toUpperCase()} unlocked achievement ${name}`);
   }
 }
