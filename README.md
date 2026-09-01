@@ -4,11 +4,9 @@
 
 An event-driven service that listens for completed orders and awards **achievements** and **badges**, unlocking **cashback** rewards.
 
----
-
 ## How it works
 
-One HTTP request is used to mock an order completed and emits the event. Each stage does its own work, then publishes the next event.
+Two HTTP request is used to capture payment details and mock an order completed and emits the event. Each stage does its own work, then publishes the next event.
 
 ## Reward catalogue
 
