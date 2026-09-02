@@ -34,8 +34,6 @@ export const completeOrder = catchAsync(async (req: Request, res: Response) => {
     } as OrderCompleted,
   };
 
-  console.log("event", event);
-
   publish(event);
 
   res.status(202).json({

@@ -8,6 +8,7 @@ import {
 import prisma from "../../prisma/client";
 import { EVENTS } from "../consts/events";
 import { publish } from "../services/messageBroker";
+import env from "../config/env";
 
 const PURCHASE_GROUP = "order_count";
 
@@ -15,7 +16,7 @@ export async function handleOrderCompleted(event: EventMessage) {
   const { orderId, userId, amount, name } = event.payload as OrderCompleted;
 
   //check to limit
-  if (amount < Number(process.env.MIN_ORDER_AMOUNT)!) {
+  if (amount < env.MIN_ORDER_AMOUNT) {
     console.log(`Order ${orderId} below floor (${amount})`);
     return;
   }

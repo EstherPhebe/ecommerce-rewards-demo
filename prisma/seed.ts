@@ -1,6 +1,8 @@
 import prisma from "./client";
 import { ACHIEVEMENT_CATALOG, BADGE_CATALOG } from "../src/consts/rewards";
 
+// Read directly rather than through src/config/env: that module validates the
+// whole runtime environment, and `prisma db seed` has no need for the rest.
 const REWARD_AMOUNT = Number(process.env.BADGE_REWARD_AMOUNT ?? 300);
 
 async function main() {

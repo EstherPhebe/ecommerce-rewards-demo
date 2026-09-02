@@ -1,8 +1,9 @@
 import axios, { AxiosResponse } from "axios";
+import env from "../config/env";
 import { PayoutRecipientType } from "../../generated/prisma/enums";
 
-const baseUrl = process.env.PAYSTACK_URL;
-const secretKey = process.env.PAYSTACK_SECRET_KEY;
+const baseUrl = env.PAYSTACK_URL;
+const secretKey = env.PAYSTACK_SECRET_KEY;
 
 const headers = {
   Authorization: `Bearer ${secretKey}`,
@@ -41,6 +42,22 @@ export class PaystackError extends Error {
     this.code = body?.code;
     this.meta = body?.meta;
   }
+}
+
+/**
+ * True when Paystack answered and refused: the request definitively did not
+ * create a transfer, so the payout can be marked FAILED.
+ *
+ * Anything else — a timeout, a dropped connection, a 5xx, a 429 — is ambiguous.
+ * The request may have been received and acted on, so the payout must NOT be
+ * marked FAILED; it has to be verified against the gateway instead.
+ */
+export function isDefinitiveRejection(error: unknown): error is PaystackError {
+  return (
+    error instanceof PaystackError &&
+    error.httpStatus < 500 &&
+    error.httpStatus !== 429
+  );
 }
 
 function unwrap<T>(response: AxiosResponse<PaystackResponse<T>>): T {
@@ -137,9 +154,7 @@ export async function initiateTransfer(
     config
   );
 
-  console.log("initialize", response.data);
   const transfer = unwrap(response);
-  console.log("#######transfer", transfer);
   console.log(
     `Initiate transfer ${req.amount} to ${req.recipientCode} (ref=${req.reference})`
   );
@@ -171,36 +186,5 @@ export async function finalizeTransfer(
     reference: transfer.reference,
     transfer_code: transfer.transfer_code,
     status: transfer.status,
-  };
-}
-
-export interface InitializeTransactionResult {
-  reference: string;
-  access_code: string;
-  authorization_url: string;
-}
-
-export async function initializeTransaction(): Promise<InitializeTransactionResult> {
-  const response = await axios.post<
-    PaystackResponse<{
-      reference: string;
-      access_code: string;
-      authorization_url: string;
-    }>
-  >(
-    `${baseUrl}/transaction/initialize`,
-    {
-      email: "customer@email.com",
-      amount: "2000000",
-    },
-    config
-  );
-
-  const transaction = unwrap(response);
-
-  return {
-    reference: transaction.reference,
-    access_code: transaction.access_code,
-    authorization_url: transaction.authorization_url,
   };
 }

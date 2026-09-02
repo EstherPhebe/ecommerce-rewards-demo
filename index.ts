@@ -2,9 +2,10 @@ import cors from "cors";
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import morgan from "morgan";
+import env from "./src/config/env";
 import prisma from "./prisma/client";
 import router from "./src/routers";
-import { connect, consume } from "./src/services/messageBroker";
+import { connect, consume, isReady } from "./src/services/messageBroker";
 import { EVENTS } from "./src/consts/events";
 import { handleOrderCompleted } from "./src/consumers/orderPurchaseHandler";
 import { handleAchievementUnlocked } from "./src/consumers/badgeHandler";
@@ -16,24 +17,31 @@ app.set("trust proxy", 1);
 
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV != "development"
-        ? (process.env.ALLOWED_ORIGINS ?? "").split(",").filter(Boolean)
-        : ["http://localhost:3002"],
+    origin: env.isDevelopment ? ["http://localhost:3002"] : env.ALLOWED_ORIGINS,
     credentials: true,
   })
 );
 app.use(express.json());
-app.use(morgan(process.env.NODE_ENV !== "development" ? "combined" : "dev"));
+app.use(morgan(env.isDevelopment ? "dev" : "combined"));
 
 app.get("/", (_req: Request, res: Response) => {
   res.status(200).json({ message: "Achievements & Rewards API" });
 });
 
+// Readiness, not liveness. GET / answers 200 even with the broker down, so it
+// reported healthy while the service consumed nothing at all.
+app.get("/health", (_req: Request, res: Response) => {
+  const broker = isReady();
+  res.status(broker ? 200 : 503).json({
+    status: broker ? "ok" : "degraded",
+    broker: broker ? "connected" : "disconnected",
+  });
+});
+
 app.use("/", router);
 
 app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
-  if (process.env.NODE_ENV === "development") console.log(error);
+  if (env.isDevelopment) console.log(error);
 
   if (error.name === "ZodError") {
     res.status(422).json({
@@ -104,7 +112,7 @@ start().catch(error => {
   console.error("fatal:", error);
   process.exit(1);
 });
-const port = process.env.APP_PORT;
+const port = env.APP_PORT;
 
 const server = app.listen(port, () => {
   console.log(`Server started on port ${port}`);

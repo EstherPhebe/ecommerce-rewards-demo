@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import env from "../config/env";
 import ErrorWithCode from "../utils/ErrorWithCode";
 export function verifyPaystackSignature(
   req: Request,
@@ -7,7 +8,7 @@ export function verifyPaystackSignature(
   next: NextFunction
 ): void {
   try {
-    const secret = process.env.PAYSTACK_SECRET_KEY;
+    const secret = env.PAYSTACK_SECRET_KEY;
     const webhookData = req.body;
 
     if (!secret) {
