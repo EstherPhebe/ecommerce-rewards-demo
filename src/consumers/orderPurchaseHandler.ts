@@ -12,8 +12,10 @@ import env from "../config/env";
 
 const PURCHASE_GROUP = "order_count";
 
-export async function handleOrderCompleted(event: EventMessage) {
-  const { orderId, userId, amount, name } = event.payload as OrderCompleted;
+export async function handleOrderCompleted(
+  event: EventMessage<OrderCompleted>
+) {
+  const { orderId, userId, amount, name } = event.payload;
 
   //check to limit
   if (amount < env.MIN_ORDER_AMOUNT) {

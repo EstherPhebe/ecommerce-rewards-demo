@@ -11,7 +11,7 @@ const orderCompletedSchema = z.object({
   orderId: z.string().min(1),
   userId: z.string().min(1),
   name: z.string().optional(),
-  amount: z.number(),
+  amount: z.number().positive(),
   settled: z.boolean().default(true), // a confirmed order is settled by default
 });
 
@@ -21,7 +21,7 @@ export const completeOrder = catchAsync(async (req: Request, res: Response) => {
     req.body
   );
 
-  const event: EventMessage = {
+  const event: EventMessage<OrderCompleted> = {
     eventId: randomUUID(),
     type: EVENTS.ORDER_COMPLETED,
     occurredAt: new Date().toISOString(),
@@ -31,7 +31,7 @@ export const completeOrder = catchAsync(async (req: Request, res: Response) => {
       name,
       amount,
       settled,
-    } as OrderCompleted,
+    },
   };
 
   publish(event);

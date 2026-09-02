@@ -7,6 +7,11 @@ import prisma from "./prisma/client";
 import router from "./src/routers";
 import { connect, consume, isReady } from "./src/services/messageBroker";
 import { EVENTS } from "./src/consts/events";
+import {
+  achievementUnlockedPayload,
+  badgeUnlockedPayload,
+  orderCompletedPayload,
+} from "./src/consts/eventSchemas";
 import { handleOrderCompleted } from "./src/consumers/orderPurchaseHandler";
 import { handleAchievementUnlocked } from "./src/consumers/badgeHandler";
 import { handleBadgeUnlocked } from "./src/consumers/cashbackHandler";
@@ -92,19 +97,22 @@ async function start() {
   await consume(
     EVENTS.ORDER_COMPLETED,
     EVENTS.ORDER_COMPLETED,
-    handleOrderCompleted
+    handleOrderCompleted,
+    orderCompletedPayload
   );
 
   await consume(
     EVENTS.ACHIEVEMENT_UNLOCKED,
     EVENTS.ACHIEVEMENT_UNLOCKED,
-    handleAchievementUnlocked
+    handleAchievementUnlocked,
+    achievementUnlockedPayload
   );
 
   await consume(
     EVENTS.BADGE_UNLOCKED,
     EVENTS.BADGE_UNLOCKED,
-    handleBadgeUnlocked
+    handleBadgeUnlocked,
+    badgeUnlockedPayload
   );
 }
 

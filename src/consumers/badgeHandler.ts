@@ -1,11 +1,17 @@
 import { randomUUID } from "crypto";
 import prisma from "../../prisma/client";
-import { BadgeUnlocked, EventMessage } from "../../types/event";
+import {
+  AchievementUnlocked,
+  BadgeUnlocked,
+  EventMessage,
+} from "../../types/event";
 import { publish } from "../services/messageBroker";
 import { EVENTS } from "../consts/events";
 import { Prisma } from "../../generated/prisma/client";
 
-export async function handleAchievementUnlocked(event: EventMessage) {
+export async function handleAchievementUnlocked(
+  event: EventMessage<AchievementUnlocked>
+) {
   const { user } = event.payload;
   const userId = user.id;
 
@@ -59,7 +65,7 @@ export async function handleAchievementUnlocked(event: EventMessage) {
 
 async function recordProcessed(
   tx: Prisma.TransactionClient,
-  event: EventMessage
+  event: EventMessage<AchievementUnlocked>
 ) {
   await tx.processedEvent.createMany({
     data: [{ eventId: event.eventId, eventType: event.type }],

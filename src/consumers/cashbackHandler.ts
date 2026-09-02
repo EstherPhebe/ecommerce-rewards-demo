@@ -9,11 +9,12 @@ import { payoutStatusFor, reasonFor } from "../services/payoutStatus";
 import {
   createTransferRecipient,
   initiateTransfer,
-  isDefinitiveRejection,
 } from "../services/paymentGateway";
 
-export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
-  const { badge_name, user } = event.payload as BadgeUnlocked;
+export async function handleBadgeUnlocked(
+  event: EventMessage<BadgeUnlocked>
+): Promise<void> {
+  const { badge_name, user } = event.payload;
   const userId = user.id;
 
   const badge = await prisma.badge.findUnique({
@@ -87,7 +88,7 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
       return;
     }
 
-    // Committed BEFORE the call, and deliberately not in a transaction with it:
+    // Committed BEFORE the call, and deliberately not in a transaction.
     // Recovery reads INITIATED as "a transfer may exist, which it cannot infer from CREATED.
     await prisma.cashbackPayout.update({
       where: { id: payout.id },
@@ -120,23 +121,10 @@ export async function handleBadgeUnlocked(event: EventMessage): Promise<void> {
     const message =
       error instanceof Error ? error.message : "unknown gateway error";
 
-    if (isDefinitiveRejection(error)) {
-      // Paystack answered and refused — no transfer exists, so FAILED is a fact.
-      await prisma.cashbackPayout.update({
-        where: { id: payout.id },
-        data: { status: PayoutStatus.FAILED, statusReason: message },
-      });
-    } else {
-      // Timeout, dropped connection, 5xx, 429: the request may have been
-      // received and acted on. Marking this FAILED would claim a payment did
-      // not happen when it might have. Leave the status as it stands — CREATED
-      // if we never reached the call, INITIATED if we did — and record why, so
-      // the sweep verifies against the gateway instead of guessing.
-      await prisma.cashbackPayout.update({
-        where: { id: payout.id },
-        data: { statusReason: `unresolved: ${message}` },
-      });
-    }
+    await prisma.cashbackPayout.update({
+      where: { id: payout.id },
+      data: { statusReason: `unresolved: ${message}` },
+    });
 
     // Re-throw so the broker retries.
     throw error;
