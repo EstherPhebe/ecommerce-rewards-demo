@@ -1,5 +1,6 @@
 import amqp, { Channel, ConsumeMessage } from "amqplib";
 import { EventMessage } from "../../types/event";
+import env from "../config/env";
 
 type Connection = Awaited<ReturnType<typeof amqp.connect>>;
 
@@ -8,12 +9,12 @@ let channel: Channel;
 
 export async function connect(): Promise<void> {
   //connect to the server
-  connection = await amqp.connect(process.env.AMQP_URL!);
+  connection = await amqp.connect(env.AMQP_URL);
 
   //create a channel
   channel = await connection.createChannel();
 
-  await channel.assertExchange(process.env.EXCHANGE!, "topic", {
+  await channel.assertExchange(env.EXCHANGE, "topic", {
     durable: true,
   });
 
@@ -28,7 +29,7 @@ export async function close(): Promise<void> {
 // Event is published to exchange, keyed by its type (routing key).
 export function publish(envelope: EventMessage): void {
   channel.publish(
-    process.env.EXCHANGE!,
+    env.EXCHANGE,
     envelope.type,
     Buffer.from(JSON.stringify(envelope)),
     {
@@ -50,13 +51,13 @@ export async function consume(
   const deadQueue = `${queue}.dead`;
 
   await channel.assertQueue(queue, { durable: true });
-  await channel.bindQueue(queue, process.env.EXCHANGE!, routingKey);
+  await channel.bindQueue(queue, env.EXCHANGE, routingKey);
 
   // After RETRY_DELAY the message dead-letters (default exchange) back to the main queue.
   await channel.assertQueue(retryQueue, {
     durable: true,
     arguments: {
-      "x-message-ttl": Number(process.env.RETRY_DELAY_MS!),
+      "x-message-ttl": Number(env.RETRY_DELAY_MS),
       "x-dead-letter-exchange": "",
       "x-dead-letter-routing-key": queue,
     },
@@ -79,7 +80,7 @@ export async function consume(
         error
       );
 
-      if (attempts + 1 < Number(process.env.MAX_RETRIES!)) {
+      if (attempts + 1 < Number(env.MAX_RETRIES)) {
         // Re-inject with an incremented attempt count.
         channel.sendToQueue(retryQueue, msg.content, {
           persistent: true,
