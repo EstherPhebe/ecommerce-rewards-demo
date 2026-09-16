@@ -20,7 +20,6 @@ jest.mock("../services/paymentGateway", () => {
   ) as typeof import("../services/paymentGateway");
   return {
     __esModule: true,
-
     PaystackError: actual.PaystackError,
     createTransferRecipient: jest.fn(),
     initiateTransfer: jest.fn(),
@@ -63,10 +62,22 @@ const updates = () =>
     (c: unknown[]) => (c[0] as { data: Record<string, unknown> }).data
   );
 
+// Stands in for the Prisma transaction client.
+const tx = {
+  $queryRaw: jest.fn() as AnyMock,
+  cashbackPayout: {
+    createMany: jest.fn() as AnyMock,
+    findUnique: jest.fn() as AnyMock,
+  },
+};
+
 function givenPayout(status: PayoutStatus) {
   prisma.badge.findUnique.mockResolvedValue({ id: 1n, cashbackAmount: 300 });
   prisma.userBadge.findUnique.mockResolvedValue({ id: 7n });
-  prisma.$transaction.mockResolvedValue({
+  prisma.$transaction.mockImplementation((async (
+    callback: (client: typeof tx) => Promise<unknown>
+  ) => callback(tx)) as never);
+  tx.cashbackPayout.findUnique.mockResolvedValue({
     id: 42n,
     payoutKey: "REF-7-ABC",
     status,
@@ -141,13 +152,15 @@ describe("gateway outcomes map onto payout status", () => {
   });
 });
 
-describe("failure is only recorded when it is a fact", () => {
-  it("marks FAILED when Paystack answered and refused", async () => {
+describe("a gateway failure never overwrites the status", () => {
+  it("records a 4xx rejection without moving the payout", async () => {
     initiateTransfer.mockRejectedValue(gatewayError(400));
 
     await expect(handleBadgeUnlocked(event)).rejects.toThrow();
 
-    expect(updates().at(-1)!.status).toBe(PayoutStatus.FAILED);
+    const last = updates().at(-1)!;
+    expect(last.status).toBeUndefined();
+    expect(last.statusReason).toMatch(/^unresolved:/);
   });
 
   it("leaves the status alone when the gateway never answered", async () => {
@@ -264,7 +277,7 @@ describe("guards against paying twice", () => {
 
 describe("payout method", () => {
   it("parks the payout when there are no bank details", async () => {
-    prisma.payoutRecipient.findUnique.mockResolvedValue(null);
+    givenRecipient(null);
     prisma.user.findUnique.mockResolvedValue({
       name: "Ada",
       accountNumber: null,
@@ -278,9 +291,7 @@ describe("payout method", () => {
   });
 
   it("creates the recipient on first use and stores it", async () => {
-    prisma.payoutRecipient.findUnique.mockResolvedValue({
-      recipientCode: null,
-    });
+    givenRecipient(null);
     createTransferRecipient.mockResolvedValue({
       recipientCode: "RCP_new",
     });
@@ -314,9 +325,7 @@ describe("payout method", () => {
   it("leaves the payout untouched when recipient creation fails ambiguously", async () => {
     // The failure happens before the INITIATED marker, so the row must stay
     // CREATED.
-    prisma.payoutRecipient.findUnique.mockResolvedValue({
-      recipientCode: null,
-    });
+    givenRecipient(null);
     createTransferRecipient.mockRejectedValue(new Error("socket hang up"));
 
     await expect(handleBadgeUnlocked(event)).rejects.toThrow();

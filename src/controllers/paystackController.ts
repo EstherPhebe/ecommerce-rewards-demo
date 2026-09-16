@@ -5,10 +5,7 @@ import ErrorWithCode from "../utils/ErrorWithCode";
 import { payoutStatusFor, reasonFor } from "../services/payoutStatus";
 import prisma from "../../prisma/client";
 import { PayoutStatus } from "../../generated/prisma/enums";
-import {
-  finalizeTransfer,
-  initializeTransaction,
-} from "../services/paymentGateway";
+import { finalizeTransfer } from "../services/paymentGateway";
 
 const envelope = z.object({
   event: z.string(),
@@ -86,9 +83,3 @@ export const finalizePayout = catchAsync(
     res.status(200).json({ success: true, data: { status, result } });
   }
 );
-
-export const transfer = catchAsync(async (req: Request, res: Response) => {
-  const initialize = await initializeTransaction();
-
-  res.status(200).json({ initialize });
-});
